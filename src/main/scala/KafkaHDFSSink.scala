@@ -7,12 +7,12 @@ import org.apache.spark.SparkConf
 object KafkaHDFSSink{
 
   def main(args: Array[String]): Unit = {
-   if (args.length < 2) {
+   if (args.length != 3) {
       System.err.println(s"""
-        |Usage: KafkaHDFSSink <brokers> <topics>
+        |Usage: KafkaHDFSSink <brokers> <topics> <destination-url>
         |  <brokers> is a list of one or more Kafka brokers
         |  <topics> is a list of one or more kafka topics to consume from
-        |
+        |  <destination-url> is the url prefix (eg:in hdfs) into which to save the fragments. Fragment names will be suffixed with the timestamp. The fragments are directories. 
         """.stripMargin)
       System.exit(1)
     }
@@ -26,8 +26,7 @@ object KafkaHDFSSink{
       .set("spark.storage.memoryFraction", "1")
       .set("spark.streaming.unpersist", "true")
 
-     val Array(brokers, topics) = args
-    //val Array(zkQuorum, group, topics, numThreads) = args
+     val Array(brokers, topics, destinationUrl) = args
 
 
     val sparkConf = new SparkConf().setAppName("KafkaConsumer")
@@ -36,10 +35,6 @@ object KafkaHDFSSink{
     val topicsSet = topics.split(",").toSet
     val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
 
-    //val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-
-    //val messages = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap)
-
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet)
 
@@ -47,11 +42,12 @@ object KafkaHDFSSink{
 		if(!rdd.partitions.isEmpty)
 		{
 		 	val timestamp: Long = System.currentTimeMillis / 1000
-		 	rdd.map(_._2).saveAsTextFile("/user/emagclickstream/clickstream-"+timestamp+".json")
+		 	rdd.map(_._2).saveAsTextFile(destinationUrl+timestamp)
 		}
     })
 
-    ssc.checkpoint("/user/clickstream/checkpoint")
+    
+    ssc.checkpoint(destinationUrl+"__checkpoint")
 
     ssc.start()
     ssc.awaitTermination()
