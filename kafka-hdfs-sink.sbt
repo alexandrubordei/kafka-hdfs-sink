@@ -1,6 +1,6 @@
 
 // compile with sbt spDist
-name := "kafka-consumer-serializer"
+name := "kafka-hdfs-sink"
 
 version := "1.0"
 
